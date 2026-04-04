@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>รายงานวิเคราะห์ความผิดปกติ — ผลการเลือกตั้ง สส. 2569</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0f172a; --surface: #1e293b; --surface2: #334155;
+    --text: #e2e8f0; --text-dim: #94a3b8; --accent: #38bdf8;
+    --red: #f87171; --orange: #fb923c; --yellow: #fbbf24;
+    --green: #4ade80; --purple: #a78bfa; --pink: #f472b6;
+    --border: #475569;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+  .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+
+  /* Header */
+  .header { text-align: center; padding: 40px 20px; border-bottom: 1px solid var(--border); margin-bottom: 30px; }
+  .header h1 { font-size: 2em; margin-bottom: 8px; background: linear-gradient(135deg, var(--accent), var(--purple)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .header .sub { color: var(--text-dim); font-size: 0.95em; }
+
+  /* Stats cards */
+  .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 30px; }
+  .stat-card { background: var(--surface); border-radius: 12px; padding: 20px; text-align: center; border: 1px solid var(--border); }
+  .stat-card .num { font-size: 2em; font-weight: 700; }
+  .stat-card .label { font-size: 0.85em; color: var(--text-dim); margin-top: 4px; }
+  .stat-card.red .num { color: var(--red); }
+  .stat-card.orange .num { color: var(--orange); }
+  .stat-card.yellow .num { color: var(--yellow); }
+  .stat-card.green .num { color: var(--green); }
+  .stat-card.blue .num { color: var(--accent); }
+  .stat-card.purple .num { color: var(--purple); }
+
+  /* Sections */
+  .section { background: var(--surface); border-radius: 12px; padding: 24px; margin-bottom: 24px; border: 1px solid var(--border); }
+  .section h2 { font-size: 1.3em; margin-bottom: 6px; display: flex; align-items: center; gap: 10px; }
+  .section h2 .icon { font-size: 1.3em; }
+  .section .desc { color: var(--text-dim); font-size: 0.9em; margin-bottom: 16px; line-height: 1.5; }
+  .section .methodology { background: var(--surface2); border-radius: 8px; padding: 14px; margin-bottom: 16px; font-size: 0.85em; color: var(--text-dim); border-left: 3px solid var(--accent); }
+
+  /* Tables */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.88em; }
+  thead th { background: var(--surface2); padding: 10px 12px; text-align: left; font-weight: 600; border-bottom: 2px solid var(--border); white-space: nowrap; position: sticky; top: 0; }
+  tbody td { padding: 8px 12px; border-bottom: 1px solid var(--border); }
+  tbody tr:hover { background: rgba(56,189,248,0.06); }
+  .num-col { text-align: right; font-variant-numeric: tabular-nums; }
+  .highlight-row { background: rgba(248,113,113,0.1) !important; }
+  .highlight-row td:first-child { border-left: 3px solid var(--red); }
+
+  /* Party badges */
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 0.8em; font-weight: 600; white-space: nowrap; }
+  .badge-กล้าธรรม { background: #1d4ed8; color: #fff; }
+  .badge-เพื่อไทย { background: #dc2626; color: #fff; }
+  .badge-ภูมิใจไทย { background: #1e40af; color: #bfdbfe; }
+  .badge-ประชาชน { background: #f97316; color: #fff; }
+  .badge-ประชาธิปัตย์ { background: #2563eb; color: #bfdbfe; }
+  .badge-รวมไทยสร้างชาติ { background: #7c3aed; color: #fff; }
+  .badge-default { background: var(--surface2); color: var(--text); }
+
+  /* Z-score bar */
+  .z-bar { display: inline-block; height: 8px; border-radius: 4px; min-width: 4px; vertical-align: middle; }
+  .z-bar.z-high { background: var(--red); }
+  .z-bar.z-med { background: var(--orange); }
+  .z-bar.z-low { background: var(--yellow); }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 2px; margin-bottom: 16px; flex-wrap: wrap; }
+  .tab { padding: 8px 16px; background: var(--surface2); border: none; color: var(--text-dim); cursor: pointer; border-radius: 8px 8px 0 0; font-size: 0.88em; transition: all 0.2s; }
+  .tab:hover { color: var(--text); background: var(--border); }
+  .tab.active { background: var(--accent); color: var(--bg); font-weight: 600; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* Chart containers */
+  .chart-container { max-width: 600px; margin: 0 auto 20px; }
+  .chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+  @media (max-width: 768px) { .chart-row { grid-template-columns: 1fr; } }
+
+  /* Severity indicator */
+  .severity { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
+  .severity.critical { background: var(--red); }
+  .severity.warning { background: var(--orange); }
+  .severity.info { background: var(--yellow); }
+
+  /* Nav */
+  .nav { position: sticky; top: 0; z-index: 100; background: rgba(15,23,42,0.95); backdrop-filter: blur(8px); padding: 10px 0; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+  .nav-inner { max-width: 1200px; margin: 0 auto; padding: 0 20px; display: flex; gap: 8px; overflow-x: auto; flex-wrap: wrap; }
+  .nav a { color: var(--text-dim); text-decoration: none; font-size: 0.82em; padding: 4px 12px; border-radius: 6px; white-space: nowrap; transition: all 0.2s; }
+  .nav a:hover { background: var(--surface2); color: var(--text); }
+
+  /* Footer */
+  .footer { text-align: center; padding: 30px; color: var(--text-dim); font-size: 0.82em; border-top: 1px solid var(--border); margin-top: 30px; }
+
+  /* Negative value */
+  .neg { color: var(--red); font-weight: 600; }
+  .pos { color: var(--green); }
+</style>
+</head>
+<body>
+
+<div class="nav">
+  <div class="nav-inner">
+    <a href="#overview">ภาพรวม</a>
+    <a href="#sec1">1. ยอดบัตรไม่ตรง</a>
+    <a href="#sec2">2. บัตรเสียสูง</a>
+    <a href="#sec3">3. ไม่เลือกผู้สมัครสูง</a>
+    <a href="#sec4">4. Turnout ผิดปกติ</a>
+    <a href="#sec5">5. คะแนนสูสี</a>
+    <a href="#sec6">6. เขตผิดปกติรวม</a>
+    <a href="#sec7">7. แบ่งเขต vs บัญชีรายชื่อ</a>
+    <a href="#sec8">8. คะแนน 100% &lt; 94%</a>
+  </div>
+</div>
+
+<div class="container">
+
+<div class="header">
+  <h1>รายงานวิเคราะห์ความผิดปกติ</h1>
+  <div class="sub">ผลการเลือกตั้ง สส. 2569 — จากข้อมูล OCR 61 (คะแนนรายเขต) 400 เขต<br>วิเคราะห์โดยใช้วิธี Z-Score (mean ± 2σ / 3σ)</div>
+</div>
+
+<!-- Overview Stats -->
+<div id="overview" class="stats-row">
+  <div class="stat-card blue"><div class="num">400</div><div class="label">เขตเลือกตั้งทั้งหมด</div></div>
+  <div class="stat-card red"><div class="num" id="stat-mismatch">24</div><div class="label">ยอดบัตรไม่ตรง</div></div>
+  <div class="stat-card orange"><div class="num" id="stat-invalid">14</div><div class="label">บัตรเสียสูง (&gt;2σ)</div></div>
+  <div class="stat-card yellow"><div class="num" id="stat-novote">9</div><div class="label">ไม่เลือกผู้สมัครสูง (&gt;2σ)</div></div>
+  <div class="stat-card purple"><div class="num">8</div><div class="label">คะแนนสูสี (&lt;1%)</div></div>
+  <div class="stat-card red"><div class="num">17</div><div class="label">เขตที่คะแนนลดลง (100%&lt;94%)</div></div>
+</div>
+
+<div class="chart-row">
+  <div class="section" style="margin-bottom:0">
+    <h2>สัดส่วนพรรคในเขตผิดปกติสูงสุด 20 อันดับ</h2>
+    <div class="chart-container"><canvas id="partyChart"></canvas></div>
+  </div>
+  <div class="section" style="margin-bottom:0">
+    <h2>สถิติพื้นฐาน (400 เขต)</h2>
+    <table>
+      <thead><tr><th>ตัวชี้วัด</th><th class="num-col">Mean</th><th class="num-col">σ</th><th class="num-col">2σ threshold</th><th class="num-col">3σ threshold</th></tr></thead>
+      <tbody>
+        <tr><td>บัตรเสีย %</td><td class="num-col">3.56%</td><td class="num-col">1.37%</td><td class="num-col">6.30%</td><td class="num-col">7.67%</td></tr>
+        <tr><td>ไม่เลือกผู้สมัคร %</td><td class="num-col">4.20%</td><td class="num-col">1.89%</td><td class="num-col">7.98%</td><td class="num-col">9.87%</td></tr>
+        <tr><td>ผู้มาใช้สิทธิ %</td><td class="num-col">71.42%</td><td class="num-col">5.72%</td><td class="num-col">82.87%</td><td class="num-col">88.59%</td></tr>
+      </tbody>
+    </table>
+    <div style="margin-top:16px">
+      <div class="chart-container"><canvas id="distChart"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- Section 1: Ballot Mismatches -->
+<div id="sec1" class="section">
+  <h2><span class="icon">&#9888;</span> 1. ยอดบัตรไม่ตรง (บัตรดี + บัตรเสีย + ไม่เลือก ≠ ผู้มาใช้สิทธิ)</h2>
+  <div class="desc">ตรวจสอบว่า valid + invalid + novote = used หรือไม่ หากไม่ตรง อาจหมายถึงบัตรสูญหาย บัตรเกิน หรือข้อมูลบันทึกผิดพลาด</div>
+  <div class="methodology">พบ <strong>24 เขต</strong>จาก 400 เขต ที่ยอดไม่ตรง — 3 เขตต่างกัน &gt;100 ใบ (น่าสงสัยมาก), 3 เขตต่าง 10-100, 18 เขตต่าง 1-10 (อาจเป็นการอ่านเลขไทยคลาดเคลื่อน)</div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>จังหวัด</th><th>เขต</th><th class="num-col">ผู้ใช้สิทธิ</th><th class="num-col">รวมบัตร 3 ประเภท</th><th class="num-col">ผลต่าง</th><th>ผู้ชนะ</th><th>หมายเหตุ</th></tr></thead>
+      <tbody id="tbody-mismatch"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Section 2: High Invalid -->
+<div id="sec2" class="section">
+  <h2><span class="icon">&#10060;</span> 2. เขตที่มีบัตรเสียสูงผิดปกติ (&gt;2σ = &gt;6.30%)</h2>
+  <div class="desc">อัตราบัตรเสียเฉลี่ยทั้งประเทศ 3.56% เขตที่เกิน 6.30% ถือว่าผิดปกติทางสถิติ — สังเกตว่า 10 จาก 14 เขตอยู่ในภาคเหนือ</div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th></th><th>จังหวัด</th><th>เขต</th><th class="num-col">บัตรเสีย</th><th class="num-col">ผู้ใช้สิทธิ</th><th class="num-col">%</th><th class="num-col">z-score</th><th>ผู้ชนะ</th></tr></thead>
+      <tbody id="tbody-invalid"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Section 3: High No-Vote -->
+<div id="sec3" class="section">
+  <h2><span class="icon">&#128683;</span> 3. เขตที่มีบัตร "ไม่เลือกผู้สมัครผู้ใด" สูงผิดปกติ (&gt;2σ = &gt;7.98%)</h2>
+  <div class="desc">อัตราเฉลี่ยทั้งประเทศ 4.20% — ตาก เขต 2 โดดเด่นที่สุดด้วย 19.92% (เกือบ 1 ใน 5 ของบัตรทั้งหมด)</div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th></th><th>จังหวัด</th><th>เขต</th><th class="num-col">ไม่เลือก</th><th class="num-col">ผู้ใช้สิทธิ</th><th class="num-col">%</th><th class="num-col">z-score</th><th>ผู้ชนะ</th></tr></thead>
+      <tbody id="tbody-novote"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Section 4: Turnout -->
+<div id="sec4" class="section">
+  <h2><span class="icon">&#128101;</span> 4. ผู้มาใช้สิทธิผิดปกติ</h2>
+  <div class="desc">ค่าเฉลี่ย 71.42% ± 5.72% — เขตที่สูงหรือต่ำกว่า 2σ</div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('turn','high')">สูงผิดปกติ (&gt;82.87%)</button>
+    <button class="tab" onclick="showTab('turn','low')">ต่ำผิดปกติ (&lt;59.98%)</button>
+  </div>
+  <div id="turn-high" class="tab-content active">
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>จังหวัด</th><th>เขต</th><th class="num-col">ผู้มีสิทธิ</th><th class="num-col">ใช้สิทธิ</th><th class="num-col">Turnout%</th><th class="num-col">z-score</th><th>ผู้ชนะ</th></tr></thead>
+        <tbody id="tbody-highturn"></tbody>
+      </table>
+    </div>
+  </div>
+  <div id="turn-low" class="tab-content">
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>จังหวัด</th><th>เขต</th><th class="num-col">ผู้มีสิทธิ</th><th class="num-col">ใช้สิทธิ</th><th class="num-col">Turnout%</th><th class="num-col">z-score</th><th>ผู้ชนะ</th></tr></thead>
+        <tbody id="tbody-lowturn"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Section 5: Close Races -->
+<div id="sec5" class="section">
+  <h2><span class="icon">&#9878;</span> 5. เขตคะแนนสูสี (margin &lt;1%)</h2>
+  <div class="desc">8 เขตที่คะแนนอันดับ 1 กับ 2 ห่างกันน้อยกว่า 1% — หมายเหตุ: เปรียบเทียบผู้ชนะ OCR61 กับ 100% แล้ว ตรงกันทั้ง 400 เขต</div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>จังหวัด</th><th>เขต</th><th>อันดับ 1</th><th>พรรค</th><th class="num-col">คะแนน</th><th>อันดับ 2</th><th>พรรค</th><th class="num-col">คะแนน</th><th class="num-col">ห่าง</th><th class="num-col">%</th></tr></thead>
+      <tbody id="tbody-close"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Section 6: Composite -->
+<div id="sec6" class="section">
+  <h2><span class="icon">&#128200;</span> 6. เขตที่มีความผิดปกติรวมสูงสุด (Composite Score)</h2>
+  <div class="desc">คำนวณจาก: บัตรเสียสูง + ไม่เลือกสูง + turnout ผิดปกติ + ยอดบัตรไม่ตรง — แสดง 20 อันดับแรก</div>
+  <div class="chart-container" style="max-width:100%;height:350px;margin-bottom:20px"><canvas id="compositeChart"></canvas></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>#</th><th>จังหวัด</th><th>เขต</th><th class="num-col">Score</th><th>สิ่งที่ผิดปกติ</th><th>ผู้ชนะ</th></tr></thead>
+      <tbody id="tbody-composite"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Section 7-8: Constituency vs Partylist -->
+<div id="sec7" class="section">
+  <h2><span class="icon">&#128196;</span> 7-8. เปรียบเทียบบัตรแบ่งเขต vs บัญชีรายชื่อ</h2>
+  <div class="desc">
+    ผู้มาใช้สิทธิแต่ละคนจะได้รับบัตร 2 ใบพร้อมกัน: <strong>บัตรแบ่งเขต</strong> (เลือก สส.) และ <strong>บัตรบัญชีรายชื่อ</strong> (เลือกพรรค)
+    เพราะมาจากผู้ลงคะแนนกลุ่มเดียวกัน อัตราบัตรเสีย/ไม่เลือกของทั้งสองบัตรควรใกล้เคียงกัน ถ้าต่างกันมาก อาจบ่งชี้ปัญหาในการนับ หรือผู้มาใช้สิทธิจงใจเลือกเฉพาะบัตรหนึ่ง
+  </div>
+  <div class="methodology">แสดงเฉพาะเขตที่ผลรวมความต่างของบัตรเสีย% + ไม่เลือก% ระหว่าง 2 บัตร เกิน 3% — พบ <strong id="con-party-count"></strong> เขต (แสดง 20 อันดับแรก)</div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>จังหวัด</th><th>เขต</th><th class="num-col">บัตรเสีย แบ่งเขต</th><th class="num-col">บัตรเสีย บัญชี</th><th class="num-col">ต่าง</th><th class="num-col">ไม่เลือก แบ่งเขต</th><th class="num-col">ไม่เลือก บัญชี</th><th class="num-col">ต่าง</th><th class="num-col">รวม</th><th>ผู้ชนะ</th></tr></thead>
+      <tbody id="tbody-conparty"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Section 8: Vote Decrease -->
+<div id="sec8" class="section">
+  <h2><span class="icon">&#128308;</span> 8. เขตที่คะแนน 100% น้อยกว่า 94% (ผิดปกติ)</h2>
+  <div class="desc">
+    ตามปกติเมื่อนับบัตรเพิ่มจาก 94% เป็น 100% คะแนนผู้สมัครควรเท่าเดิมหรือเพิ่มขึ้นเท่านั้น <strong>ไม่ควรลดลง</strong> —
+    พบ <strong>39 ราย ใน 17 เขต</strong> ที่คะแนนลดลง ซึ่งอาจหมายถึงมีการแก้ไขตัวเลข นับใหม่ หรือข้อมูลจากแหล่งใดแหล่งหนึ่งมีข้อผิดพลาด
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>จังหวัด</th><th>เขต</th><th>ผู้สมัคร</th><th>พรรค</th><th class="num-col">คะแนน 100%</th><th class="num-col">คะแนน 94%</th><th class="num-col">ผลต่าง</th></tr></thead>
+      <tbody id="tbody-decrease"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="footer">
+  รายงานนี้สร้างจากข้อมูล OCR 61 (คะแนนรายเขต) 400 เขตเลือกตั้ง และเปรียบเทียบกับข้อมูลนับคะแนน 94%<br>
+  วิเคราะห์เมื่อ 26 มีนาคม 2569 — ข้อมูลอ้างอิงจากเอกสาร กกต.
+</div>
+
+</div>
+
+<script>
+// ===== DATA =====
+const DATA = {"stats": {"inv_mean": 3.56, "inv_std": 1.37, "nv_mean": 4.2, "nv_std": 1.89, "turn_mean": 71.42, "turn_std": 5.72, "total_districts": 400}, "mismatches": [{"province": "ราชบุรี", "district": 3, "used": 115223, "calc": 110523, "diff": -4700, "winner_name": "นายจตุพร กมลพันธ์ทิพย์", "winner_party": "กล้าธรรม"}, {"province": "พะเยา", "district": 1, "used": 94639, "calc": 98625, "diff": 3986, "winner_name": "นายอัครา พรหมเผ่า", "winner_party": "กล้าธรรม"}, {"province": "สุราษฎร์ธานี", "district": 5, "used": 93476, "calc": 93876, "diff": 400, "winner_name": "นายปรเมษฐ์ จินา", "winner_party": "กล้าธรรม"}, {"province": "กรุงเทพมหานคร", "district": 31, "used": 107547, "calc": 107447, "diff": -100, "winner_name": "นายอนุสรณ์ ธรรมใจ", "winner_party": "ประชาชน"}, {"province": "เพชรบูรณ์", "district": 6, "used": 87505, "calc": 87405, "diff": -100, "winner_name": "นายอัคร ทองใจสด", "winner_party": "ภูมิใจไทย"}, {"province": "นครศรีธรรมราช", "district": 5, "used": 106726, "calc": 106715, "diff": -11, "winner_name": "นายสมศักดิ์ แสงอารยะกุล", "winner_party": "กล้าธรรม"}, {"province": "เพชรบูรณ์", "district": 1, "used": 88736, "calc": 88731, "diff": -5, "winner_name": "นางสาวพิมพ์พร พรพฤฒิพันธุ์", "winner_party": "ภูมิใจไทย"}, {"province": "กำแพงเพชร", "district": 1, "used": 101442, "calc": 101439, "diff": -3, "winner_name": "นายไผ่ ลิกค์", "winner_party": "กล้าธรรม"}, {"province": "ชลบุรี", "district": 1, "used": 104346, "calc": 104344, "diff": -2, "winner_name": "นายสุชาติ ชมกลิ่น", "winner_party": "ภูมิใจไทย"}, {"province": "กรุงเทพมหานคร", "district": 4, "used": 82948, "calc": 82947, "diff": -1, "winner_name": "นายภัณฑิล น่วมเจิม", "winner_party": "ประชาชน"}, {"province": "กรุงเทพมหานคร", "district": 21, "used": 96860, "calc": 96859, "diff": -1, "winner_name": "นายณัฐพงศ์ เปรมพูลสวัสดิ์", "winner_party": "ประชาชน"}, {"province": "ฉะเชิงเทรา", "district": 4, "used": 122283, "calc": 122282, "diff": -1, "winner_name": "จ่าเอก ยศสิงห์ เหลี่ยมเลิศ", "winner_party": "กล้าธรรม"}, {"province": "ตาก", "district": 1, "used": 105329, "calc": 105328, "diff": -1, "winner_name": "นายธนัสถ์ ทวีเกื้อกูลกิจ", "winner_party": "ภูมิใจไทย"}, {"province": "นครศรีธรรมราช", "district": 1, "used": 99799, "calc": 99798, "diff": -1, "winner_name": "นายทรงศักดิ์ มุสิกอง", "winner_party": "ประชาธิปัตย์"}, {"province": "น่าน", "district": 3, "used": 89542, "calc": 89541, "diff": -1, "winner_name": "นายเจริญ อภิภัทรโกศล", "winner_party": "ประชาชน"}, {"province": "ประจวบคีรีขันธ์", "district": 1, "used": 118298, "calc": 118297, "diff": -1, "winner_name": "นายสังคม แดงโชติ", "winner_party": "ภูมิใจไทย"}, {"province": "ปราจีนบุรี", "district": 3, "used": 93849, "calc": 93848, "diff": -1, "winner_name": "นายสฤษดิ์ บุตรเนียร", "winner_party": "ภูมิใจไทย"}, {"province": "พระนครศรีอยุธยา", "district": 5, "used": 105917, "calc": 105916, "diff": -1, "winner_name": "นายปะดิธ สังขจาย", "winner_party": "ภูมิใจไทย"}, {"province": "พิจิตร", "district": 2, "used": 91079, "calc": 91078, "diff": -1, "winner_name": "นายวินัย ภัทรประสิทธิ์", "winner_party": "ภูมิใจไทย"}, {"province": "พิจิตร", "district": 3, "used": 100598, "calc": 100597, "diff": -1, "winner_name": "นายศิริวัฒน์ ขจรประศาสน์", "winner_party": "ภูมิใจไทย"}, {"province": "ลพบุรี", "district": 3, "used": 105930, "calc": 105929, "diff": -1, "winner_name": "นางสาวกาญจนาพร จิระพันธุ์วาณิช", "winner_party": "ภูมิใจไทย"}, {"province": "ศรีสะเกษ", "district": 6, "used": 83911, "calc": 83912, "diff": 1, "winner_name": "นายวีระพล จิตสัมฤทธิ์", "winner_party": "เพื่อไทย"}, {"province": "สงขลา", "district": 3, "used": 105979, "calc": 105978, "diff": -1, "winner_name": "นายสมยศ พลายด้วง", "winner_party": "ภูมิใจไทย"}, {"province": "อุดรธานี", "district": 3, "used": 79803, "calc": 79802, "diff": -1, "winner_name": "นายหรั่ง ธุระพล", "winner_party": "ภูมิใจไทย"}], "high_invalid": [{"province": "ตาก", "district": 2, "invalid": 9782, "used": 89186, "inv_pct": 10.97, "z": 5.4, "winner_name": "นายชิงชัย ก่อประภากิจ", "winner_party": "กล้าธรรม"}, {"province": "เชียงใหม่", "district": 10, "invalid": 9656, "used": 91752, "inv_pct": 10.52, "z": 5.1, "winner_name": "นายนรพล ตันติมนตรี", "winner_party": "กล้าธรรม"}, {"province": "นครราชสีมา", "district": 13, "invalid": 6631, "used": 78490, "inv_pct": 8.45, "z": 3.6, "winner_name": "นายพชร จันทรรวงทอง", "winner_party": "เพื่อไทย"}, {"province": "เชียงราย", "district": 3, "invalid": 8431, "used": 104922, "inv_pct": 8.04, "z": 3.3, "winner_name": "นายพิทักษ์ แสงคำ", "winner_party": "กล้าธรรม"}, {"province": "ตาก", "district": 3, "invalid": 7567, "used": 96512, "inv_pct": 7.84, "z": 3.1, "winner_name": "นายภาคภูมิ บูลย์ประมุข", "winner_party": "กล้าธรรม"}, {"province": "เลย", "district": 4, "invalid": 6443, "used": 85019, "inv_pct": 7.58, "z": 2.9, "winner_name": "นายสมเจตน์ แสงเจริญรัตน์", "winner_party": "เพื่อไทย"}, {"province": "เลย", "district": 2, "invalid": 6284, "used": 83494, "inv_pct": 7.53, "z": 2.9, "winner_name": "นายศรัณย์ ทิมสุวรรณ", "winner_party": "เพื่อไทย"}, {"province": "แม่ฮ่องสอน", "district": 2, "invalid": 5450, "used": 74409, "inv_pct": 7.32, "z": 2.7, "winner_name": "นายสมบัติ ยะสินธุ์", "winner_party": "ภูมิใจไทย"}, {"province": "แพร่", "district": 3, "invalid": 6065, "used": 84246, "inv_pct": 7.2, "z": 2.7, "winner_name": "นางสาวลักษณารีย์ ดวงตาดำ", "winner_party": "ประชาชน"}, {"province": "ลำปาง", "district": 2, "invalid": 7842, "used": 111667, "inv_pct": 7.02, "z": 2.5, "winner_name": "นายดาชัย เอกปฐพี", "winner_party": "กล้าธรรม"}, {"province": "เชียงใหม่", "district": 6, "invalid": 6347, "used": 91404, "inv_pct": 6.94, "z": 2.5, "winner_name": "นางสาวสุภานันท์ ปัญญาทิพย์", "winner_party": "กล้าธรรม"}, {"province": "เชียงราย", "district": 6, "invalid": 5544, "used": 85892, "inv_pct": 6.45, "z": 2.1, "winner_name": "นางมลธิชา ไชยบาล", "winner_party": "กล้าธรรม"}, {"province": "เพชรบูรณ์", "district": 5, "invalid": 5215, "used": 81841, "inv_pct": 6.37, "z": 2.1, "winner_name": "นางวันเพ็ญ พร้อมพัฒน์", "winner_party": "ภูมิใจไทย"}, {"province": "เชียงราย", "district": 2, "invalid": 6400, "used": 100731, "inv_pct": 6.35, "z": 2.0, "winner_name": "นางสาวปิยะรัฐชย์ ติยะไพรัช", "winner_party": "เพื่อไทย"}], "high_novote": [{"province": "ตาก", "district": 2, "novote": 17764, "used": 89186, "nv_pct": 19.92, "z": 8.3, "winner_name": "นายชิงชัย ก่อประภากิจ", "winner_party": "กล้าธรรม"}, {"province": "นครศรีธรรมราช", "district": 7, "novote": 11238, "used": 99078, "nv_pct": 11.34, "z": 3.8, "winner_name": "นายอภินันท์ สโมสร", "winner_party": "ภูมิใจไทย"}, {"province": "สงขลา", "district": 3, "novote": 9408, "used": 105979, "nv_pct": 8.88, "z": 2.5, "winner_name": "นายสมยศ พลายด้วง", "winner_party": "ภูมิใจไทย"}, {"province": "ปราจีนบุรี", "district": 1, "novote": 8201, "used": 94811, "nv_pct": 8.65, "z": 2.4, "winner_name": "นายอำนาจ วิลาวัลย์", "winner_party": "ภูมิใจไทย"}, {"province": "ชัยนาท", "district": 1, "novote": 7981, "used": 94469, "nv_pct": 8.45, "z": 2.2, "winner_name": "นายอนุชา นาคาศัย", "winner_party": "เพื่อไทย"}, {"province": "ฉะเชิงเทรา", "district": 1, "novote": 9013, "used": 110016, "nv_pct": 8.19, "z": 2.1, "winner_name": "นางฐิติมา ฉายแสง", "winner_party": "เพื่อไทย"}, {"province": "ระนอง", "district": 1, "novote": 7798, "used": 96299, "nv_pct": 8.1, "z": 2.1, "winner_name": "นายคงกฤษ ฉัตรมาลีรัตน์", "winner_party": "ภูมิใจไทย"}, {"province": "ลำปาง", "district": 1, "novote": 8978, "used": 112100, "nv_pct": 8.01, "z": 2.0, "winner_name": "นางทิพา ปวีณาเสถียร", "winner_party": "ประชาชน"}, {"province": "นครราชสีมา", "district": 1, "novote": 7247, "used": 90557, "nv_pct": 8.0, "z": 2.0, "winner_name": "นายฉัตร สุภัทรวณิชย์", "winner_party": "ประชาชน"}], "high_turnout": [{"province": "ราชบุรี", "district": 5, "eligible": 133773, "used": 114688, "turn_pct": 85.73, "z": 2.5, "winner_name": "นายบุญลือ ประเสริฐโสภา", "winner_party": "ภูมิใจไทย"}, {"province": "พัทลุง", "district": 2, "eligible": 144343, "used": 122372, "turn_pct": 84.78, "z": 2.3, "winner_name": "นายวรท เทอดวีระพงศ์", "winner_party": "ภูมิใจไทย"}, {"province": "พัทลุง", "district": 1, "eligible": 134471, "used": 113867, "turn_pct": 84.68, "z": 2.3, "winner_name": "นาวาอากาศเอกอธิคุณ คงมี", "winner_party": "ภูมิใจไทย"}, {"province": "กาญจนบุรี", "district": 3, "eligible": 136011, "used": 113958, "turn_pct": 83.79, "z": 2.2, "winner_name": "นายยศวัฒน์ มาไพศาลสิน", "winner_party": "ภูมิใจไทย"}, {"province": "เชียงใหม่", "district": 9, "eligible": 126132, "used": 105624, "turn_pct": 83.74, "z": 2.2, "winner_name": "นายนเรศ ธำรงค์ทิพยคุณ", "winner_party": "กล้าธรรม"}, {"province": "สงขลา", "district": 8, "eligible": 120456, "used": 99959, "turn_pct": 82.98, "z": 2.0, "winner_name": "พล.ต.ต.สุรินทร์ ปาลาเร่", "winner_party": "กล้าธรรม"}], "low_turnout": [{"province": "ชลบุรี", "district": 9, "eligible": 122755, "used": 69180, "turn_pct": 56.36, "z": -2.6, "winner_name": "นายยอดชาย พึ่งพร", "winner_party": "ประชาชน"}, {"province": "สกลนคร", "district": 7, "eligible": 131938, "used": 76157, "turn_pct": 57.72, "z": -2.4, "winner_name": "นายอิสรพงษ์ อุประ", "winner_party": "เพื่อไทย"}, {"province": "อุดรธานี", "district": 4, "eligible": 126481, "used": 74870, "turn_pct": 59.19, "z": -2.1, "winner_name": "นายไตรภพ คำเพชร", "winner_party": "เพื่อไทย"}, {"province": "อุดรธานี", "district": 5, "eligible": 123472, "used": 73659, "turn_pct": 59.66, "z": -2.1, "winner_name": "นางบัวเงิน รอดขันเมือง", "winner_party": "ภูมิใจไทย"}, {"province": "นครราชสีมา", "district": 7, "eligible": 136725, "used": 81993, "turn_pct": 59.97, "z": -2.0, "winner_name": "นางสาวปิยะนุช ยินดีสุข", "winner_party": "เพื่อไทย"}], "close_races": [{"province": "นครราชสีมา", "district": 3, "w_name": "นายศุทธสิทธิ์ พจน์ฐศักดิ์", "w_party": "ประชาชน", "w_votes": 37699, "r_name": "นายสมบัติ กาญจนวัฒนา", "r_party": "เพื่อไทย", "r_votes": 37400, "margin": 299, "margin_pct": 0.323}, {"province": "นราธิวาส", "district": 3, "w_name": "นายสัมพันธ์ มะยูโซะ", "w_party": "กล้าธรรม", "w_votes": 36480, "r_name": "นายแวรุสลัน มะสาและ", "r_party": "ภูมิใจไทย", "r_votes": 36214, "margin": 266, "margin_pct": 0.335}, {"province": "ศรีสะเกษ", "district": 6, "w_name": "นายวีระพล จิตสัมฤทธิ์", "w_party": "เพื่อไทย", "w_votes": 31345, "r_name": "นายคชศักดิ์ ศิริรัตน์มานะวงศ์", "r_party": "ภูมิใจไทย", "r_votes": 31072, "margin": 273, "margin_pct": 0.345}, {"province": "ร้อยเอ็ด", "district": 4, "w_name": "นายศุภศิษย์ กอเจริญยศ", "w_party": "เพื่อไทย", "w_votes": 22302, "r_name": "นายนีโอ พลซื่อ", "r_party": "กล้าธรรม", "r_votes": 21829, "margin": 473, "margin_pct": 0.588}, {"province": "นครราชสีมา", "district": 16, "w_name": "นายตติรัฐ รัตนเศรษฐ", "w_party": "ภูมิใจไทย", "w_votes": 32139, "r_name": "นายพรเทพ ศิริโรจนกุล", "r_party": "เพื่อไทย", "r_votes": 31496, "margin": 643, "margin_pct": 0.765}, {"province": "แม่ฮ่องสอน", "district": 2, "w_name": "นายสมบัติ ยะสินธุ์", "w_party": "ภูมิใจไทย", "w_votes": 24897, "r_name": "นายวิทยา หวานซึ้ง", "r_party": "กล้าธรรม", "r_votes": 24368, "margin": 529, "margin_pct": 0.787}, {"province": "นครราชสีมา", "district": 2, "w_name": "นายวัชรพล โตมรศักดิ์", "w_party": "เพื่อไทย", "w_votes": 39980, "r_name": "นายปิยชาติ รุจิพรวศิน", "r_party": "ประชาชน", "r_votes": 39142, "margin": 838, "margin_pct": 0.867}, {"province": "สระบุรี", "district": 1, "w_name": "นายขุนทอง แสนวิเศษ", "w_party": "ภูมิใจไทย", "w_votes": 31958, "r_name": "นายสรพัช ศรีปราชญ์", "r_party": "ประชาชน", "r_votes": 31087, "margin": 871, "margin_pct": 0.989}], "composite": [{"province": "ราชบุรี", "district": 3, "score": 44.3, "flags": "ยอดบัตรต่าง 4,700", "inv_z": 1.2, "nv_z": 1.6, "turn_z": 1.5, "mismatch": 4700, "winner_name": "นายจตุพร กมลพันธ์ทิพย์", "winner_party": "กล้าธรรม"}, {"province": "พะเยา", "district": 1, "score": 42.5, "flags": "ยอดบัตรต่าง 3,986", "inv_z": -0.3, "nv_z": 0.0, "turn_z": 0.8, "mismatch": 3986, "winner_name": "นายอัครา พรหมเผ่า", "winner_party": "กล้าธรรม"}, {"province": "ตาก", "district": 2, "score": 14.2, "flags": "บัตรเสีย 11.0%, ไม่เลือก 19.9%", "inv_z": 5.4, "nv_z": 8.3, "turn_z": -1.0, "mismatch": 0, "winner_name": "นายชิงชัย ก่อประภากิจ", "winner_party": "กล้าธรรม"}, {"province": "นครราชสีมา", "district": 13, "score": 5.9, "flags": "บัตรเสีย 8.4%", "inv_z": 3.6, "nv_z": 1.4, "turn_z": -1.9, "mismatch": 0, "winner_name": "นายพชร จันทรรวงทอง", "winner_party": "เพื่อไทย"}, {"province": "เชียงใหม่", "district": 10, "score": 5.4, "flags": "บัตรเสีย 10.5%", "inv_z": 5.1, "nv_z": -1.4, "turn_z": 0.7, "mismatch": 0, "winner_name": "นายนรพล ตันติมนตรี", "winner_party": "กล้าธรรม"}, {"province": "นครศรีธรรมราช", "district": 7, "score": 5.0, "flags": "ไม่เลือก 11.3%", "inv_z": 1.2, "nv_z": 3.8, "turn_z": 0.2, "mismatch": 0, "winner_name": "นายอภินันท์ สโมสร", "winner_party": "ภูมิใจไทย"}, {"province": "สุราษฎร์ธานี", "district": 5, "score": 4.7, "flags": "ยอดบัตรต่าง 400", "inv_z": -0.9, "nv_z": -0.6, "turn_z": 0.9, "mismatch": 400, "winner_name": "นายปรเมษฐ์ จินา", "winner_party": "กล้าธรรม"}, {"province": "เลย", "district": 2, "score": 4.3, "flags": "บัตรเสีย 7.5%", "inv_z": 2.9, "nv_z": 0.6, "turn_z": -1.5, "mismatch": 0, "winner_name": "นายศรัณย์ ทิมสุวรรณ", "winner_party": "เพื่อไทย"}, {"province": "ชัยนาท", "district": 1, "score": 4.1, "flags": "ไม่เลือก 8.4%", "inv_z": 1.8, "nv_z": 2.2, "turn_z": -0.0, "mismatch": 0, "winner_name": "นายอนุชา นาคาศัย", "winner_party": "เพื่อไทย"}, {"province": "เชียงราย", "district": 3, "score": 3.9, "flags": "บัตรเสีย 8.0%", "inv_z": 3.3, "nv_z": 0.3, "turn_z": 0.6, "mismatch": 0, "winner_name": "นายพิทักษ์ แสงคำ", "winner_party": "กล้าธรรม"}, {"province": "เลย", "district": 4, "score": 3.7, "flags": "บัตรเสีย 7.6%", "inv_z": 2.9, "nv_z": 0.6, "turn_z": -0.5, "mismatch": 0, "winner_name": "นายสมเจตน์ แสงเจริญรัตน์", "winner_party": "เพื่อไทย"}, {"province": "นครราชสีมา", "district": 14, "score": 3.6, "flags": "", "inv_z": 1.7, "nv_z": 1.3, "turn_z": -1.3, "mismatch": 0, "winner_name": "นายหนึ่ง ขัติยะนนท์", "winner_party": "ประชาชน"}, {"province": "แพร่", "district": 3, "score": 3.5, "flags": "บัตรเสีย 7.2%", "inv_z": 2.7, "nv_z": 0.7, "turn_z": -0.4, "mismatch": 0, "winner_name": "นางสาวลักษณารีย์ ดวงตาดำ", "winner_party": "ประชาชน"}, {"province": "ระนอง", "district": 1, "score": 3.5, "flags": "ไม่เลือก 8.1%", "inv_z": 1.0, "nv_z": 2.1, "turn_z": -0.7, "mismatch": 0, "winner_name": "นายคงกฤษ ฉัตรมาลีรัตน์", "winner_party": "ภูมิใจไทย"}, {"province": "แม่ฮ่องสอน", "district": 2, "score": 3.3, "flags": "บัตรเสีย 7.3%", "inv_z": 2.7, "nv_z": -1.0, "turn_z": 1.1, "mismatch": 0, "winner_name": "นายสมบัติ ยะสินธุ์", "winner_party": "ภูมิใจไทย"}, {"province": "ตาก", "district": 3, "score": 3.2, "flags": "บัตรเสีย 7.8%", "inv_z": 3.1, "nv_z": -0.6, "turn_z": 0.1, "mismatch": 0, "winner_name": "นายภาคภูมิ บูลย์ประมุข", "winner_party": "กล้าธรรม"}, {"province": "พิษณุโลก", "district": 2, "score": 3.2, "flags": "", "inv_z": 1.0, "nv_z": 2.0, "turn_z": -0.5, "mismatch": 0, "winner_name": "นายนพพล เหลืองทองนารา", "winner_party": "เพื่อไทย"}, {"province": "สงขลา", "district": 3, "score": 3.2, "flags": "ไม่เลือก 8.9%", "inv_z": -0.3, "nv_z": 2.5, "turn_z": 1.4, "mismatch": 1, "winner_name": "นายสมยศ พลายด้วง", "winner_party": "ภูมิใจไทย"}, {"province": "ฉะเชิงเทรา", "district": 1, "score": 3.1, "flags": "ไม่เลือก 8.2%", "inv_z": 0.7, "nv_z": 2.1, "turn_z": 0.6, "mismatch": 0, "winner_name": "นางฐิติมา ฉายแสง", "winner_party": "เพื่อไทย"}, {"province": "เชียงราย", "district": 2, "score": 3.1, "flags": "บัตรเสีย 6.4%", "inv_z": 2.0, "nv_z": 0.7, "turn_z": 0.8, "mismatch": 0, "winner_name": "นางสาวปิยะรัฐชย์ ติยะไพรัช", "winner_party": "เพื่อไทย"}], "con_vs_party": [{"province": "ตาก", "district": 2, "inv_con": 10.97, "inv_party": 6.78, "inv_diff": 4.19, "nv_con": 19.92, "nv_party": 4.94, "nv_diff": 14.98, "total_diff": 19.16, "winner_name": "นายชิงชัย ก่อประภากิจ", "winner_party": "กล้าธรรม"}, {"province": "นครศรีธรรมราช", "district": 7, "inv_con": 5.14, "inv_party": 3.78, "inv_diff": 1.37, "nv_con": 11.34, "nv_party": 4.04, "nv_diff": 7.31, "total_diff": 8.67, "winner_name": "นายอภินันท์ สโมสร", "winner_party": "ภูมิใจไทย"}, {"province": "ระนอง", "district": 1, "inv_con": 4.97, "inv_party": 3.85, "inv_diff": 1.12, "nv_con": 8.1, "nv_party": 3.24, "nv_diff": 4.86, "total_diff": 5.98, "winner_name": "นายคงกฤษ ฉัตรมาลีรัตน์", "winner_party": "ภูมิใจไทย"}, {"province": "ระยอง", "district": 2, "inv_con": 4.71, "inv_party": 2.81, "inv_diff": 1.9, "nv_con": 7.11, "nv_party": 3.47, "nv_diff": 3.64, "total_diff": 5.54, "winner_name": "นายกฤช ศิลปชัย", "winner_party": "ประชาชน"}, {"province": "ภูเก็ต", "district": 2, "inv_con": 4.19, "inv_party": 2.62, "inv_diff": 1.57, "nv_con": 7.51, "nv_party": 3.72, "nv_diff": 3.78, "total_diff": 5.35, "winner_name": "นายเฉลิมพงศ์ แสงดี", "winner_party": "ประชาชน"}, {"province": "ปทุมธานี", "district": 3, "inv_con": 3.14, "inv_party": 1.96, "inv_diff": 1.17, "nv_con": 7.15, "nv_party": 3.39, "nv_diff": 3.76, "total_diff": 4.93, "winner_name": "นายเอกศักดิ์ หอมชื่น", "winner_party": "ประชาชน"}, {"province": "นครศรีธรรมราช", "district": 2, "inv_con": 2.91, "inv_party": 3.63, "inv_diff": 0.72, "nv_con": 5.9, "nv_party": 2.36, "nv_diff": 3.54, "total_diff": 4.26, "winner_name": "นางสาวนันทวัน วิเชียร", "winner_party": "ภูมิใจไทย"}, {"province": "อุบลราชธานี", "district": 1, "inv_con": 4.21, "inv_party": 3.15, "inv_diff": 1.05, "nv_con": 7.31, "nv_party": 4.12, "nv_diff": 3.19, "total_diff": 4.24, "winner_name": "นายวรสิทธิ์ กัลป์ตินันท์", "winner_party": "เพื่อไทย"}, {"province": "สมุทรปราการ", "district": 5, "inv_con": 2.58, "inv_party": 1.99, "inv_diff": 0.59, "nv_con": 7.3, "nv_party": 3.67, "nv_diff": 3.64, "total_diff": 4.23, "winner_name": "นางสาวนิตยา มีศรี", "winner_party": "ประชาชน"}, {"province": "นครราชสีมา", "district": 13, "inv_con": 8.45, "inv_party": 6.59, "inv_diff": 1.86, "nv_con": 6.82, "nv_party": 4.49, "nv_diff": 2.34, "total_diff": 4.2, "winner_name": "นายพชร จันทรรวงทอง", "winner_party": "เพื่อไทย"}, {"province": "ฉะเชิงเทรา", "district": 1, "inv_con": 4.54, "inv_party": 3.68, "inv_diff": 0.86, "nv_con": 8.19, "nv_party": 4.86, "nv_diff": 3.33, "total_diff": 4.19, "winner_name": "นางฐิติมา ฉายแสง", "winner_party": "เพื่อไทย"}, {"province": "ราชบุรี", "district": 4, "inv_con": 2.48, "inv_party": 5.15, "inv_diff": 2.67, "nv_con": 2.25, "nv_party": 3.77, "nv_diff": 1.52, "total_diff": 4.18, "winner_name": "นายอัครเดช วงษ์พิทักษ์โรจน์", "winner_party": "ภูมิใจไทย"}, {"province": "นราธิวาส", "district": 2, "inv_con": 4.44, "inv_party": 6.33, "inv_diff": 1.89, "nv_con": 4.97, "nv_party": 2.73, "nv_diff": 2.24, "total_diff": 4.13, "winner_name": "นายอามินทร์ มะยูโต๊ะ", "winner_party": "กล้าธรรม"}, {"province": "เพชรบูรณ์", "district": 2, "inv_con": 2.59, "inv_party": 5.97, "inv_diff": 3.38, "nv_con": 2.07, "nv_party": 2.8, "nv_diff": 0.73, "total_diff": 4.11, "winner_name": "นายยุพราช บัวอินทร์", "winner_party": "ภูมิใจไทย"}, {"province": "พังงา", "district": 1, "inv_con": 3.92, "inv_party": 3.51, "inv_diff": 0.41, "nv_con": 6.91, "nv_party": 3.26, "nv_diff": 3.66, "total_diff": 4.07, "winner_name": "นายอรรถพล ไตรศรี", "winner_party": "ภูมิใจไทย"}, {"province": "สงขลา", "district": 1, "inv_con": 3.01, "inv_party": 3.12, "inv_diff": 0.12, "nv_con": 7.64, "nv_party": 3.7, "nv_diff": 3.94, "total_diff": 4.05, "winner_name": "นายสรรเพชญ บุญญามณี", "winner_party": "ภูมิใจไทย"}, {"province": "ชัยนาท", "district": 2, "inv_con": 5.21, "inv_party": 7.38, "inv_diff": 2.17, "nv_con": 5.94, "nv_party": 4.07, "nv_diff": 1.87, "total_diff": 4.04, "winner_name": "นายมณเฑียร สงฆ์ประชา", "winner_party": "ภูมิใจไทย"}, {"province": "นครสวรรค์", "district": 6, "inv_con": 3.81, "inv_party": 7.57, "inv_diff": 3.76, "nv_con": 1.76, "nv_party": 2.01, "nv_diff": 0.25, "total_diff": 4.01, "winner_name": "นายประสาท ตันประเสริฐ", "winner_party": "ภูมิใจไทย"}, {"province": "กรุงเทพมหานคร", "district": 18, "inv_con": 1.63, "inv_party": 2.56, "inv_diff": 0.93, "nv_con": 6.24, "nv_party": 3.17, "nv_diff": 3.06, "total_diff": 3.99, "winner_name": "นายธีรัจชัย พันธุมาศ", "winner_party": "ประชาชน"}, {"province": "สงขลา", "district": 5, "inv_con": 3.74, "inv_party": 3.75, "inv_diff": 0.01, "nv_con": 6.51, "nv_party": 2.57, "nv_diff": 3.94, "total_diff": 3.95, "winner_name": "นายวงศ์วชร ขาวทอง", "winner_party": "กล้าธรรม"}, {"province": "นนทบุรี", "district": 6, "inv_con": 3.28, "inv_party": 2.34, "inv_diff": 0.94, "nv_con": 6.72, "nv_party": 3.71, "nv_diff": 3.0, "total_diff": 3.94, "winner_name": "นายสุทัศน์ มีศิริ", "winner_party": "ประชาชน"}, {"province": "ปราจีนบุรี", "district": 1, "inv_con": 3.89, "inv_party": 4.82, "inv_diff": 0.93, "nv_con": 8.65, "nv_party": 5.64, "nv_diff": 3.01, "total_diff": 3.94, "winner_name": "นายอำนาจ วิลาวัลย์", "winner_party": "ภูมิใจไทย"}, {"province": "นนทบุรี", "district": 3, "inv_con": 2.26, "inv_party": 2.09, "inv_diff": 0.17, "nv_con": 7.35, "nv_party": 3.6, "nv_diff": 3.75, "total_diff": 3.92, "winner_name": "นายอนุสรณ์ แก้ววิเชียร", "winner_party": "ประชาชน"}, {"province": "ชลบุรี", "district": 9, "inv_con": 4.53, "inv_party": 2.91, "inv_diff": 1.62, "nv_con": 5.26, "nv_party": 3.01, "nv_diff": 2.25, "total_diff": 3.88, "winner_name": "นายยอดชาย พึ่งพร", "winner_party": "ประชาชน"}, {"province": "สุพรรณบุรี", "district": 3, "inv_con": 3.2, "inv_party": 6.19, "inv_diff": 2.99, "nv_con": 1.78, "nv_party": 2.63, "nv_diff": 0.85, "total_diff": 3.84, "winner_name": "นายณัฐชาติ วงศ์ประเสริฐ", "winner_party": "กล้าธรรม"}, {"province": "เชียงราย", "district": 3, "inv_con": 8.04, "inv_party": 5.97, "inv_diff": 2.06, "nv_con": 4.78, "nv_party": 3.17, "nv_diff": 1.61, "total_diff": 3.68, "winner_name": "นายพิทักษ์ แสงคำ", "winner_party": "กล้าธรรม"}, {"province": "นราธิวาส", "district": 1, "inv_con": 2.84, "inv_party": 5.96, "inv_diff": 3.12, "nv_con": 2.87, "nv_party": 2.31, "nv_diff": 0.56, "total_diff": 3.68, "winner_name": "นายลุตฟี หะยีอีแต", "winner_party": "กล้าธรรม"}, {"province": "นครราชสีมา", "district": 1, "inv_con": 2.57, "inv_party": 2.97, "inv_diff": 0.41, "nv_con": 8.0, "nv_party": 4.77, "nv_diff": 3.23, "total_diff": 3.64, "winner_name": "นายฉัตร สุภัทรวณิชย์", "winner_party": "ประชาชน"}, {"province": "ตรัง", "district": 1, "inv_con": 2.18, "inv_party": 2.63, "inv_diff": 0.45, "nv_con": 6.64, "nv_party": 3.47, "nv_diff": 3.17, "total_diff": 3.62, "winner_name": "นายเอกพล ณ พัทลุง", "winner_party": "ภูมิใจไทย"}, {"province": "ประจวบคีรีขันธ์", "district": 1, "inv_con": 2.88, "inv_party": 5.9, "inv_diff": 3.03, "nv_con": 2.23, "nv_party": 2.8, "nv_diff": 0.57, "total_diff": 3.59, "winner_name": "นายสังคม แดงโชติ", "winner_party": "ภูมิใจไทย"}, {"province": "แพร่", "district": 3, "inv_con": 7.2, "inv_party": 5.44, "inv_diff": 1.76, "nv_con": 5.45, "nv_party": 3.64, "nv_diff": 1.81, "total_diff": 3.57, "winner_name": "นางสาวลักษณารีย์ ดวงตาดำ", "winner_party": "ประชาชน"}, {"province": "สุโขทัย", "district": 1, "inv_con": 4.79, "inv_party": 5.87, "inv_diff": 1.07, "nv_con": 6.68, "nv_party": 4.18, "nv_diff": 2.5, "total_diff": 3.57, "winner_name": "นางสาวณัคนางค์ กุลนาถศิริ", "winner_party": "เพื่อไทย"}, {"province": "เชียงใหม่", "district": 10, "inv_con": 10.52, "inv_party": 7.07, "inv_diff": 3.45, "nv_con": 1.52, "nv_party": 1.42, "nv_diff": 0.11, "total_diff": 3.56, "winner_name": "นายนรพล ตันติมนตรี", "winner_party": "กล้าธรรม"}, {"province": "ชัยนาท", "district": 1, "inv_con": 6.05, "inv_party": 5.94, "inv_diff": 0.12, "nv_con": 8.45, "nv_party": 5.02, "nv_diff": 3.43, "total_diff": 3.55, "winner_name": "นายอนุชา นาคาศัย", "winner_party": "เพื่อไทย"}, {"province": "เพชรบูรณ์", "district": 4, "inv_con": 3.89, "inv_party": 6.84, "inv_diff": 2.96, "nv_con": 3.45, "nv_party": 2.85, "nv_diff": 0.6, "total_diff": 3.55, "winner_name": "นายวรโชติ สุคนธ์ขจร", "winner_party": "ภูมิใจไทย"}, {"province": "ลพบุรี", "district": 1, "inv_con": 3.47, "inv_party": 5.83, "inv_diff": 2.36, "nv_con": 5.73, "nv_party": 4.55, "nv_diff": 1.18, "total_diff": 3.54, "winner_name": "นายนรินทร์ คลังผา", "winner_party": "ภูมิใจไทย"}, {"province": "ขอนแก่น", "district": 2, "inv_con": 2.64, "inv_party": 3.34, "inv_diff": 0.7, "nv_con": 6.08, "nv_party": 3.25, "nv_diff": 2.83, "total_diff": 3.53, "winner_name": "นายอิทธิพล ชลธราศิริ", "winner_party": "ประชาชน"}, {"province": "สงขลา", "district": 9, "inv_con": 2.87, "inv_party": 2.82, "inv_diff": 0.05, "nv_con": 6.15, "nv_party": 2.66, "nv_diff": 3.49, "total_diff": 3.53, "winner_name": "นายศักดิ์สิทธิ์ ขาวทอง", "winner_party": "ประชาธิปัตย์"}, {"province": "สุโขทัย", "district": 3, "inv_con": 5.51, "inv_party": 6.46, "inv_diff": 0.94, "nv_con": 6.93, "nv_party": 4.36, "nv_diff": 2.58, "total_diff": 3.52, "winner_name": "นางสาวประภาพร ทองปากน้ำ", "winner_party": "เพื่อไทย"}, {"province": "กรุงเทพมหานคร", "district": 10, "inv_con": 1.53, "inv_party": 1.79, "inv_diff": 0.26, "nv_con": 6.24, "nv_party": 3.0, "nv_diff": 3.25, "total_diff": 3.51, "winner_name": "นายเอกราช อุดมอำนวย", "winner_party": "ประชาชน"}, {"province": "กรุงเทพมหานคร", "district": 32, "inv_con": 2.38, "inv_party": 2.24, "inv_diff": 0.13, "nv_con": 6.45, "nv_party": 3.08, "nv_diff": 3.36, "total_diff": 3.5, "winner_name": "นางสาวปวิตรา จิตตกิจ", "winner_party": "ประชาชน"}, {"province": "ลำปาง", "district": 1, "inv_con": 4.16, "inv_party": 3.81, "inv_diff": 0.35, "nv_con": 8.01, "nv_party": 4.91, "nv_diff": 3.1, "total_diff": 3.45, "winner_name": "นางทิพา ปวีณาเสถียร", "winner_party": "ประชาชน"}, {"province": "กระบี่", "district": 2, "inv_con": 3.02, "inv_party": 3.42, "inv_diff": 0.41, "nv_con": 5.25, "nv_party": 2.21, "nv_diff": 3.03, "total_diff": 3.44, "winner_name": "นายถิรเดช ตั้งมั่นก่อกิจ", "winner_party": "ภูมิใจไทย"}, {"province": "ลำปาง", "district": 3, "inv_con": 4.01, "inv_party": 5.3, "inv_diff": 1.3, "nv_con": 6.89, "nv_party": 4.8, "nv_diff": 2.09, "total_diff": 3.38, "winner_name": "นายชลธานี เชื้อน้อย", "winner_party": "ประชาชน"}, {"province": "เชียงราย", "district": 4, "inv_con": 5.71, "inv_party": 4.55, "inv_diff": 1.16, "nv_con": 5.36, "nv_party": 3.15, "nv_diff": 2.21, "total_diff": 3.37, "winner_name": "นายสุรสิทธิ์ เจียมวิจักษณ์", "winner_party": "กล้าธรรม"}, {"province": "นครราชสีมา", "district": 6, "inv_con": 2.46, "inv_party": 5.64, "inv_diff": 3.18, "nv_con": 2.15, "nv_party": 1.96, "nv_diff": 0.18, "total_diff": 3.37, "winner_name": "นางพัชราวรรณ ภิญโญ", "winner_party": "เพื่อไทย"}, {"province": "กรุงเทพมหานคร", "district": 8, "inv_con": 1.55, "inv_party": 1.57, "inv_diff": 0.02, "nv_con": 5.98, "nv_party": 2.64, "nv_diff": 3.34, "total_diff": 3.36, "winner_name": "นายชยพล สท้อนดี", "winner_party": "ประชาชน"}, {"province": "ราชบุรี", "district": 5, "inv_con": 2.74, "inv_party": 5.43, "inv_diff": 2.7, "nv_con": 2.61, "nv_party": 3.26, "nv_diff": 0.66, "total_diff": 3.35, "winner_name": "นายบุญลือ ประเสริฐโสภา", "winner_party": "ภูมิใจไทย"}, {"province": "สระแก้ว", "district": 1, "inv_con": 3.86, "inv_party": 6.14, "inv_diff": 2.28, "nv_con": 4.31, "nv_party": 3.24, "nv_diff": 1.07, "total_diff": 3.35, "winner_name": "นายบดี เทียนทอง", "winner_party": "พลังประชารัฐ"}, {"province": "กาญจนบุรี", "district": 4, "inv_con": 6.05, "inv_party": 8.19, "inv_diff": 2.14, "nv_con": 5.32, "nv_party": 4.12, "nv_diff": 1.2, "total_diff": 3.34, "winner_name": "นางสาววิสุดา วิเชียรศิลป์", "winner_party": "ภูมิใจไทย"}, {"province": "ร้อยเอ็ด", "district": 5, "inv_con": 5.85, "inv_party": 4.01, "inv_diff": 1.84, "nv_con": 4.05, "nv_party": 2.54, "nv_diff": 1.5, "total_diff": 3.34, "winner_name": "นางสาวจิราพร สินธุไพร", "winner_party": "เพื่อไทย"}, {"province": "กาญจนบุรี", "district": 2, "inv_con": 2.79, "inv_party": 5.57, "inv_diff": 2.77, "nv_con": 3.04, "nv_party": 3.6, "nv_diff": 0.55, "total_diff": 3.33, "winner_name": "นายชูเกียรติ จีนาภักดิ์", "winner_party": "ภูมิใจไทย"}, {"province": "นราธิวาส", "district": 3, "inv_con": 2.91, "inv_party": 5.93, "inv_diff": 3.01, "nv_con": 1.44, "nv_party": 1.13, "nv_diff": 0.32, "total_diff": 3.33, "winner_name": "นายสัมพันธ์ มะยูโซะ", "winner_party": "กล้าธรรม"}, {"province": "สุโขทัย", "district": 2, "inv_con": 4.66, "inv_party": 6.68, "inv_diff": 2.02, "nv_con": 4.34, "nv_party": 3.03, "nv_diff": 1.31, "total_diff": 3.33, "winner_name": "นายชูศักดิ์ คีรีมาศทอง", "winner_party": "เพื่อไทย"}, {"province": "ชัยภูมิ", "district": 5, "inv_con": 2.96, "inv_party": 5.99, "inv_diff": 3.03, "nv_con": 1.54, "nv_party": 1.84, "nv_diff": 0.3, "total_diff": 3.32, "winner_name": "นายศิวะ พงศ์ธีระดุลย์", "winner_party": "เพื่อไทย"}, {"province": "ภูเก็ต", "district": 1, "inv_con": 2.63, "inv_party": 2.68, "inv_diff": 0.05, "nv_con": 6.33, "nv_party": 3.08, "nv_diff": 3.25, "total_diff": 3.3, "winner_name": "ว่าที่ร้อยตรีสมชาติ เตชถาวรเจริญ", "winner_party": "ประชาชน"}, {"province": "เลย", "district": 2, "inv_con": 7.53, "inv_party": 6.19, "inv_diff": 1.34, "nv_con": 5.37, "nv_party": 3.4, "nv_diff": 1.96, "total_diff": 3.3, "winner_name": "นายศรัณย์ ทิมสุวรรณ", "winner_party": "เพื่อไทย"}, {"province": "นครศรีธรรมราช", "district": 8, "inv_con": 2.72, "inv_party": 3.78, "inv_diff": 1.06, "nv_con": 4.36, "nv_party": 2.13, "nv_diff": 2.23, "total_diff": 3.29, "winner_name": "นางอวยพรศรี เชาวลิต", "winner_party": "ภูมิใจไทย"}, {"province": "กรุงเทพมหานคร", "district": 31, "inv_con": 1.85, "inv_party": 1.93, "inv_diff": 0.08, "nv_con": 6.47, "nv_party": 3.28, "nv_diff": 3.2, "total_diff": 3.27, "winner_name": "นายอนุสรณ์ ธรรมใจ", "winner_party": "ประชาชน"}, {"province": "กาญจนบุรี", "district": 3, "inv_con": 3.16, "inv_party": 5.65, "inv_diff": 2.48, "nv_con": 2.11, "nv_party": 2.89, "nv_diff": 0.79, "total_diff": 3.27, "winner_name": "นายยศวัฒน์ มาไพศาลสิน", "winner_party": "ภูมิใจไทย"}, {"province": "กรุงเทพมหานคร", "district": 33, "inv_con": 2.09, "inv_party": 1.84, "inv_diff": 0.24, "nv_con": 5.91, "nv_party": 2.9, "nv_diff": 3.02, "total_diff": 3.26, "winner_name": "นายเท่าพิภพ ลิ้มจิตรกร", "winner_party": "ประชาชน"}, {"province": "นครราชสีมา", "district": 14, "inv_con": 5.83, "inv_party": 4.52, "inv_diff": 1.31, "nv_con": 6.61, "nv_party": 4.67, "nv_diff": 1.94, "total_diff": 3.25, "winner_name": "นายหนึ่ง ขัติยะนนท์", "winner_party": "ประชาชน"}, {"province": "สุราษฎร์ธานี", "district": 1, "inv_con": 2.02, "inv_party": 1.99, "inv_diff": 0.03, "nv_con": 6.26, "nv_party": 3.04, "nv_diff": 3.22, "total_diff": 3.25, "winner_name": "นางสาวกานสินี โอภาสรังสรรค์", "winner_party": "ภูมิใจไทย"}, {"province": "กาฬสินธุ์", "district": 1, "inv_con": 3.12, "inv_party": 5.21, "inv_diff": 2.09, "nv_con": 3.98, "nv_party": 2.84, "nv_diff": 1.13, "total_diff": 3.23, "winner_name": "นายวิรัช พิมพะนิตย์", "winner_party": "เพื่อไทย"}, {"province": "เชียงใหม่", "district": 2, "inv_con": 3.07, "inv_party": 3.43, "inv_diff": 0.36, "nv_con": 7.68, "nv_party": 4.81, "nv_diff": 2.87, "total_diff": 3.23, "winner_name": "นางสาวการณิก จันทดา", "winner_party": "ประชาชน"}, {"province": "กรุงเทพมหานคร", "district": 29, "inv_con": 1.82, "inv_party": 2.28, "inv_diff": 0.46, "nv_con": 5.6, "nv_party": 2.87, "nv_diff": 2.73, "total_diff": 3.19, "winner_name": "นางสาวทิสรัตน์ เลาหพล", "winner_party": "ประชาชน"}, {"province": "ขอนแก่น", "district": 1, "inv_con": 2.88, "inv_party": 3.19, "inv_diff": 0.32, "nv_con": 6.06, "nv_party": 3.18, "nv_diff": 2.87, "total_diff": 3.19, "winner_name": "นายวีรนันท์ ฮวดศรี", "winner_party": "ประชาชน"}, {"province": "กรุงเทพมหานคร", "district": 13, "inv_con": 1.35, "inv_party": 1.42, "inv_diff": 0.07, "nv_con": 5.4, "nv_party": 2.29, "nv_diff": 3.11, "total_diff": 3.18, "winner_name": "เรืออากาศโท ธนเดช เพ็งสุข", "winner_party": "ประชาชน"}, {"province": "ชัยภูมิ", "district": 7, "inv_con": 2.47, "inv_party": 5.19, "inv_diff": 2.72, "nv_con": 1.29, "nv_party": 1.75, "nv_diff": 0.46, "total_diff": 3.18, "winner_name": "นายอัครแสนคีรี โล่ห์วีระ", "winner_party": "กล้าธรรม"}, {"province": "สระบุรี", "district": 1, "inv_con": 3.76, "inv_party": 4.61, "inv_diff": 0.85, "nv_con": 6.79, "nv_party": 4.47, "nv_diff": 2.32, "total_diff": 3.18, "winner_name": "นายขุนทอง แสนวิเศษ", "winner_party": "ภูมิใจไทย"}, {"province": "อุดรธานี", "district": 1, "inv_con": 2.86, "inv_party": 2.66, "inv_diff": 0.2, "nv_con": 6.66, "nv_party": 3.7, "nv_diff": 2.97, "total_diff": 3.17, "winner_name": "นายอานันท์ อมรินทร์", "winner_party": "ประชาชน"}, {"province": "กรุงเทพมหานคร", "district": 1, "inv_con": 1.39, "inv_party": 2.09, "inv_diff": 0.7, "nv_con": 5.1, "nv_party": 2.64, "nv_diff": 2.45, "total_diff": 3.16, "winner_name": "นายปารเมศ วิทยารักษ์สรรค์", "winner_party": "ประชาชน"}, {"province": "กรุงเทพมหานคร", "district": 9, "inv_con": 1.56, "inv_party": 1.52, "inv_diff": 0.04, "nv_con": 5.85, "nv_party": 2.73, "nv_diff": 3.12, "total_diff": 3.16, "winner_name": "นายศุภณัฐ มีนชัยนันท์", "winner_party": "ประชาชน"}, {"province": "กรุงเทพมหานคร", "district": 7, "inv_con": 1.78, "inv_party": 1.81, "inv_diff": 0.02, "nv_con": 6.13, "nv_party": 3.0, "nv_diff": 3.13, "total_diff": 3.15, "winner_name": "นางสาวภัสริน รามวงศ์", "winner_party": "ประชาชน"}, {"province": "ฉะเชิงเทรา", "district": 3, "inv_con": 5.22, "inv_party": 6.59, "inv_diff": 1.38, "nv_con": 5.15, "nv_party": 3.38, "nv_diff": 1.77, "total_diff": 3.15, "winner_name": "นายชัยวัฒน์ เป้าเปี่ยมทรัพย์", "winner_party": "กล้าธรรม"}, {"province": "ชุมพร", "district": 1, "inv_con": 2.38, "inv_party": 2.93, "inv_diff": 0.55, "nv_con": 5.22, "nv_party": 2.62, "nv_diff": 2.61, "total_diff": 3.15, "winner_name": "นายวิชัย สุดสวาสดิ์", "winner_party": "ภูมิใจไทย"}, {"province": "สมุทรปราการ", "district": 1, "inv_con": 4.39, "inv_party": 3.14, "inv_diff": 1.25, "nv_con": 5.11, "nv_party": 3.21, "nv_diff": 1.9, "total_diff": 3.15, "winner_name": "นางสาวพนิดา มงคลสวัสดิ์", "winner_party": "ประชาชน"}, {"province": "กรุงเทพมหานคร", "district": 17, "inv_con": 2.48, "inv_party": 2.76, "inv_diff": 0.27, "nv_con": 6.82, "nv_party": 3.95, "nv_diff": 2.87, "total_diff": 3.14, "winner_name": "นายวีรวุธ รักเที่ยง", "winner_party": "ประชาชน"}, {"province": "นครราชสีมา", "district": 15, "inv_con": 2.84, "inv_party": 5.7, "inv_diff": 2.87, "nv_con": 1.83, "nv_party": 2.1, "nv_diff": 0.27, "total_diff": 3.13, "winner_name": "นายรชตะ ด่านกุล", "winner_party": "เพื่อไทย"}, {"province": "เชียงราย", "district": 2, "inv_con": 6.35, "inv_party": 5.11, "inv_diff": 1.25, "nv_con": 5.48, "nv_party": 3.61, "nv_diff": 1.87, "total_diff": 3.12, "winner_name": "นางสาวปิยะรัฐชย์ ติยะไพรัช", "winner_party": "เพื่อไทย"}, {"province": "ปัตตานี", "district": 2, "inv_con": 3.51, "inv_party": 5.3, "inv_diff": 1.79, "nv_con": 3.35, "nv_party": 2.03, "nv_diff": 1.32, "total_diff": 3.11, "winner_name": "นายคอซีย์ มามุ", "winner_party": "ภูมิใจไทย"}, {"province": "กรุงเทพมหานคร", "district": 30, "inv_con": 1.47, "inv_party": 1.91, "inv_diff": 0.44, "nv_con": 5.39, "nv_party": 2.72, "nv_diff": 2.67, "total_diff": 3.1, "winner_name": "นายธัญธร ธนินวัฒนาธร", "winner_party": "ประชาชน"}, {"province": "กำแพงเพชร", "district": 3, "inv_con": 4.62, "inv_party": 7.29, "inv_diff": 2.68, "nv_con": 3.44, "nv_party": 3.02, "nv_diff": 0.42, "total_diff": 3.09, "winner_name": "นายนพพล ผลอำนวย", "winner_party": "เพื่อไทย"}, {"province": "พิจิตร", "district": 2, "inv_con": 4.77, "inv_party": 6.85, "inv_diff": 2.08, "nv_con": 3.91, "nv_party": 2.91, "nv_diff": 1.0, "total_diff": 3.08, "winner_name": "นายวินัย ภัทรประสิทธิ์", "winner_party": "ภูมิใจไทย"}, {"province": "กรุงเทพมหานคร", "district": 28, "inv_con": 2.01, "inv_party": 1.96, "inv_diff": 0.05, "nv_con": 5.98, "nv_party": 2.96, "nv_diff": 3.01, "total_diff": 3.07, "winner_name": "นางสาวชลณัฏฐ์ โกยกุล", "winner_party": "ประชาชน"}, {"province": "ปทุมธานี", "district": 5, "inv_con": 1.91, "inv_party": 2.05, "inv_diff": 0.14, "nv_con": 6.03, "nv_party": 3.11, "nv_diff": 2.92, "total_diff": 3.06, "winner_name": "นายเชตวัน เตือประโคน", "winner_party": "ประชาชน"}, {"province": "พิจิตร", "district": 3, "inv_con": 3.72, "inv_party": 6.73, "inv_diff": 3.01, "nv_con": 2.18, "nv_party": 2.23, "nv_diff": 0.04, "total_diff": 3.06, "winner_name": "นายศิริวัฒน์ ขจรประศาสน์", "winner_party": "ภูมิใจไทย"}, {"province": "ยะลา", "district": 1, "inv_con": 3.11, "inv_party": 4.16, "inv_diff": 1.05, "nv_con": 5.44, "nv_party": 3.44, "nv_diff": 2.0, "total_diff": 3.05, "winner_name": "นายสุไลมาน บือแนปีแน", "winner_party": "ประชาชาติ"}, {"province": "ปทุมธานี", "district": 6, "inv_con": 1.95, "inv_party": 1.63, "inv_diff": 0.32, "nv_con": 5.76, "nv_party": 3.04, "nv_diff": 2.73, "total_diff": 3.04, "winner_name": "นายธนภัทร ตระกูลภูชัย", "winner_party": "ประชาชน"}, {"province": "นนทบุรี", "district": 1, "inv_con": 1.71, "inv_party": 1.87, "inv_diff": 0.17, "nv_con": 5.81, "nv_party": 2.95, "nv_diff": 2.85, "total_diff": 3.02, "winner_name": "นายวุฒากร นุตยกุล", "winner_party": "ประชาชน"}, {"province": "นนทบุรี", "district": 4, "inv_con": 2.37, "inv_party": 1.84, "inv_diff": 0.53, "nv_con": 5.7, "nv_party": 3.21, "nv_diff": 2.49, "total_diff": 3.02, "winner_name": "นายกรณ์ มีดี", "winner_party": "ประชาชน"}, {"province": "กรุงเทพมหานคร", "district": 15, "inv_con": 1.44, "inv_party": 1.72, "inv_diff": 0.27, "nv_con": 5.31, "nv_party": 2.57, "nv_diff": 2.74, "total_diff": 3.01, "winner_name": "นายวิทวัส ติชะวาณิชย์", "winner_party": "ประชาชน"}, {"province": "ตาก", "district": 1, "inv_con": 3.63, "inv_party": 5.89, "inv_diff": 2.26, "nv_con": 4.86, "nv_party": 4.12, "nv_diff": 0.74, "total_diff": 3.01, "winner_name": "นายธนัสถ์ ทวีเกื้อกูลกิจ", "winner_party": "ภูมิใจไทย"}, {"province": "นนทบุรี", "district": 8, "inv_con": 2.14, "inv_party": 2.65, "inv_diff": 0.51, "nv_con": 5.79, "nv_party": 3.29, "nv_diff": 2.5, "total_diff": 3.01, "winner_name": "นายนนท์ ไพศาลลิ้มเจริญกิจ", "winner_party": "ประชาชน"}, {"province": "อุตรดิตถ์", "district": 2, "inv_con": 4.55, "inv_party": 6.31, "inv_diff": 1.76, "nv_con": 5.22, "nv_party": 3.98, "nv_diff": 1.24, "total_diff": 3.0, "winner_name": "นางสาวรสรินทร์ ศรัณย์เกตุ", "winner_party": "โอกาสใหม่"}], "vote_decrease": [{"province": "บุรีรัมย์", "district": 2, "num_candidates": 8, "total_loss": -2783, "details": [{"province": "บุรีรัมย์", "district": 2, "name": "นายวิทธิลักษณ์ จันทร์ธนสมบัติ", "party": "ประชาชน", "v100": 11395, "v94": 13625, "diff": -2230}, {"province": "บุรีรัมย์", "district": 2, "name": "นายปรัญชญา ตรีกาญจนา", "party": "เพื่อไทย", "v100": 3555, "v94": 3701, "diff": -146}, {"province": "บุรีรัมย์", "district": 2, "name": "นายปัญจะ จำลองชาติ", "party": "ประชากรไทย", "v100": 691, "v94": 790, "diff": -99}, {"province": "บุรีรัมย์", "district": 2, "name": "นายสัญชัย ทะนานทอง", "party": "ประชาธิปัตย์", "v100": 653, "v94": 739, "diff": -86}, {"province": "บุรีรัมย์", "district": 2, "name": "นายตี๋ แก้วสีจันทร์", "party": "รวมไทยสร้างชาติ", "v100": 491, "v94": 559, "diff": -68}, {"province": "บุรีรัมย์", "district": 2, "name": "นายกาจ ทุมสิทธิ์", "party": "เศรษฐกิจ", "v100": 1043, "v94": 1109, "diff": -66}, {"province": "บุรีรัมย์", "district": 2, "name": "นายมนัสชัย โพธิ์แก้ว", "party": "ปวงชนไทย", "v100": 549, "v94": 605, "diff": -56}, {"province": "บุรีรัมย์", "district": 2, "name": "นางสาวรุ้งไพลิน ปิ่นอนันต์สกุล", "party": "กล้าธรรม", "v100": 199, "v94": 231, "diff": -32}]}, {"province": "อุทัยธานี", "district": 2, "num_candidates": 1, "total_loss": -1467, "details": [{"province": "อุทัยธานี", "district": 2, "name": "นางสาวสุชาดา บัวพันธ์", "party": "ประชาชน", "v100": 9062, "v94": 10529, "diff": -1467}]}, {"province": "กรุงเทพมหานคร", "district": 32, "num_candidates": 1, "total_loss": -1418, "details": [{"province": "กรุงเทพมหานคร", "district": 32, "name": "นางสาวกัญญาวีร์ จารุสัมพันธ์กนก", "party": "รวมไทยสร้างชาติ", "v100": 1429, "v94": 2847, "diff": -1418}]}, {"province": "นนทบุรี", "district": 8, "num_candidates": 7, "total_loss": -1396, "details": [{"province": "นนทบุรี", "district": 8, "name": "นายอดุล จันทร์แก้ว", "party": "ภูมิใจไทย", "v100": 26846, "v94": 27663, "diff": -817}, {"province": "นนทบุรี", "district": 8, "name": "พ.ต.อ. ประเสริฐ พ่วงสุด", "party": "เศรษฐกิจ", "v100": 1957, "v94": 2180, "diff": -223}, {"province": "นนทบุรี", "district": 8, "name": "นายวัชรพล เจริญนนทสิทธิ์", "party": "กล้าธรรม", "v100": 5349, "v94": 5511, "diff": -162}, {"province": "นนทบุรี", "district": 8, "name": "นายนนท์ ไพศาลลิ้มเจริญกิจ", "party": "ประชาชน", "v100": 36631, "v94": 36749, "diff": -118}, {"province": "นนทบุรี", "district": 8, "name": "นายเดชาวัจน์ รดีฉัตรภิรมย์", "party": "ประชาธิปัตย์", "v100": 4255, "v94": 4301, "diff": -46}, {"province": "นนทบุรี", "district": 8, "name": "นายมนูญ พรหมลักษณ์", "party": "พลังประชารัฐ", "v100": 852, "v94": 881, "diff": -29}, {"province": "นนทบุรี", "district": 8, "name": "นายธีร์วริศ ธรรมนารักษ์", "party": "ฟิวชัน", "v100": 460, "v94": 461, "diff": -1}]}, {"province": "พะเยา", "district": 1, "num_candidates": 1, "total_loss": -1058, "details": [{"province": "พะเยา", "district": 1, "name": "นายวิชัย ไชยมงคล", "party": "เพื่อไทย", "v100": 1228, "v94": 2286, "diff": -1058}]}, {"province": "นครราชสีมา", "district": 14, "num_candidates": 1, "total_loss": -769, "details": [{"province": "นครราชสีมา", "district": 14, "name": "นายหนึ่ง ขัติยะนนท์", "party": "ประชาชน", "v100": 29003, "v94": 29772, "diff": -769}]}, {"province": "หนองบัวลำภู", "district": 1, "num_candidates": 3, "total_loss": -207, "details": [{"province": "หนองบัวลำภู", "district": 1, "name": "นายทองคำ บุญประทุม", "party": "ประชาธิปไตยใหม่", "v100": 451, "v94": 579, "diff": -128}, {"province": "หนองบัวลำภู", "district": 1, "name": "นายบุญเรือง เขื่อนตีนกง", "party": "ไทยก้าวใหม่", "v100": 189, "v94": 242, "diff": -53}, {"province": "หนองบัวลำภู", "district": 1, "name": "นายวุฒิพงษ์ ศิริสถิตย์", "party": "พลังประชารัฐ", "v100": 1303, "v94": 1329, "diff": -26}]}, {"province": "นครศรีธรรมราช", "district": 7, "num_candidates": 1, "total_loss": -178, "details": [{"province": "นครศรีธรรมราช", "district": 7, "name": "นายพลวรรฒน์ ธรรมโสภณ", "party": "เศรษฐกิจ", "v100": 598, "v94": 776, "diff": -178}]}, {"province": "ขอนแก่น", "district": 6, "num_candidates": 5, "total_loss": -143, "details": [{"province": "ขอนแก่น", "district": 6, "name": "นายสำราญ ศรีภา", "party": "พลังประชารัฐ", "v100": 1452, "v94": 1552, "diff": -100}, {"province": "ขอนแก่น", "district": 6, "name": "นายอภิชัย ชาตะมีนา", "party": "ประชาชน", "v100": 14374, "v94": 14408, "diff": -34}, {"province": "ขอนแก่น", "district": 6, "name": "นางสาวพลอยไพลิน เกียรติสุรนนท์", "party": "เพื่อไทย", "v100": 19300, "v94": 19305, "diff": -5}, {"province": "ขอนแก่น", "district": 6, "name": "นายนิติศาสตร์ กุลน้อย", "party": "ประชาธิปัตย์", "v100": 717, "v94": 720, "diff": -3}, {"province": "ขอนแก่น", "district": 6, "name": "นายลานบุญ สีลา", "party": "ไทยก้าวใหม่", "v100": 143, "v94": 144, "diff": -1}]}, {"province": "นครศรีธรรมราช", "district": 4, "num_candidates": 1, "total_loss": -125, "details": [{"province": "นครศรีธรรมราช", "district": 4, "name": "นายกองตรี อาญาสิทธิ์ ศรีสุวรรณ", "party": "เพื่อไทย", "v100": 798, "v94": 923, "diff": -125}]}, {"province": "อุบลราชธานี", "district": 6, "num_candidates": 1, "total_loss": -95, "details": [{"province": "อุบลราชธานี", "district": 6, "name": "นายชาญ การเพียร", "party": "ประชาธิปัตย์", "v100": 437, "v94": 532, "diff": -95}]}, {"province": "สตูล", "district": 1, "num_candidates": 1, "total_loss": -77, "details": [{"province": "สตูล", "district": 1, "name": "นายณัฐพล สาดอาหลี", "party": "เพื่อไทย", "v100": 1582, "v94": 1659, "diff": -77}]}, {"province": "เชียงใหม่", "district": 10, "num_candidates": 1, "total_loss": -66, "details": [{"province": "เชียงใหม่", "district": 10, "name": "นายธวัชชัย แสงสว่าง", "party": "พลังประชารัฐ", "v100": 687, "v94": 753, "diff": -66}]}, {"province": "นครปฐม", "district": 3, "num_candidates": 3, "total_loss": -48, "details": [{"province": "นครปฐม", "district": 3, "name": "นายวันชนะ วงษ์พรพันธุ์", "party": "ประชาชน", "v100": 21739, "v94": 21777, "diff": -38}, {"province": "นครปฐม", "district": 3, "name": "ว่าที่ร้อยตรีวัยวัฒน์ อินทร์ณรงค์", "party": "พลวัต", "v100": 1303, "v94": 1309, "diff": -6}, {"province": "นครปฐม", "district": 3, "name": "นายอัษฎาวุธ จิตตคุตตานนท์", "party": "กล้าธรรม", "v100": 653, "v94": 657, "diff": -4}]}, {"province": "กาฬสินธุ์", "district": 2, "num_candidates": 2, "total_loss": -9, "details": [{"province": "กาฬสินธุ์", "district": 2, "name": "นายอรรถวัฒน์ มณีพันธุ์", "party": "ประชาธิปัตย์", "v100": 1154, "v94": 1162, "diff": -8}, {"province": "กาฬสินธุ์", "district": 2, "name": "นายชัยทัศน์ อัดโดดดร", "party": "พลังประชารัฐ", "v100": 479, "v94": 480, "diff": -1}]}, {"province": "ปัตตานี", "district": 3, "num_candidates": 1, "total_loss": -6, "details": [{"province": "ปัตตานี", "district": 3, "name": "นายมูสำหมัดอามิน กอเดร์", "party": "เพื่อไทย", "v100": 646, "v94": 652, "diff": -6}]}, {"province": "นครราชสีมา", "district": 5, "num_candidates": 1, "total_loss": -1, "details": [{"province": "นครราชสีมา", "district": 5, "name": "ร้อยตรี พงศภัค ภูริสิทธิพล", "party": "ไทยก้าวใหม่", "v100": 0, "v94": 1, "diff": -1}]}]};
+
+// ===== HELPER FUNCTIONS =====
+function num(n) { return n.toLocaleString(); }
+function pct(n) { return n.toFixed(2) + '%'; }
+function partyBadge(p) {
+  const cls = ['กล้าธรรม','เพื่อไทย','ภูมิใจไทย','ประชาชน','ประชาธิปัตย์','รวมไทยสร้างชาติ'].includes(p) ? 'badge-'+p : 'badge-default';
+  return '<span class="badge '+cls+'">'+p+'</span>';
+}
+function zBar(z) {
+  const w = Math.min(Math.abs(z) * 15, 100);
+  const cls = Math.abs(z) >= 3 ? 'z-high' : Math.abs(z) >= 2 ? 'z-med' : 'z-low';
+  return '<span class="z-bar '+cls+'" style="width:'+w+'px"></span> ' + z.toFixed(1) + 'σ';
+}
+function severity(val, t2, t3) {
+  return val >= t3 ? '<span class="severity critical"></span>' : val >= t2 ? '<span class="severity warning"></span>' : '<span class="severity info"></span>';
+}
+
+// ===== TAB SWITCHING =====
+function showTab(group, name) {
+  document.querySelectorAll('#'+group+'-high,#'+group+'-low').forEach(el => el.classList.remove('active'));
+  document.getElementById(group+'-'+name).classList.add('active');
+  const btns = document.getElementById(group+'-'+name).parentElement.querySelectorAll('.tab');
+  btns.forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+}
+
+// ===== POPULATE TABLES =====
+function init() {
+  // 1. Mismatches
+  let html = '';
+  DATA.mismatches.forEach(m => {
+    const abs = Math.abs(m.diff);
+    const cls = abs > 100 ? 'highlight-row' : '';
+    const note = abs > 100 ? '<span class="severity critical"></span>น่าสงสัยมาก' : abs > 10 ? '<span class="severity warning"></span>ปานกลาง' : '<span class="severity info"></span>อาจเป็น OCR';
+    html += '<tr class="'+cls+'"><td>'+m.province+'</td><td>'+m.district+'</td><td class="num-col">'+num(m.used)+'</td><td class="num-col">'+num(m.calc)+'</td><td class="num-col '+(m.diff<0?'neg':'pos')+'">'+num(m.diff)+'</td><td>'+m.winner_name+' '+partyBadge(m.winner_party)+'</td><td>'+note+'</td></tr>';
+  });
+  document.getElementById('tbody-mismatch').innerHTML = html;
+
+  // 2. High invalid
+  html = '';
+  DATA.high_invalid.forEach(d => {
+    const sev = severity(d.inv_pct, 6.30, 7.67);
+    html += '<tr><td>'+sev+'</td><td>'+d.province+'</td><td>'+d.district+'</td><td class="num-col">'+num(d.invalid)+'</td><td class="num-col">'+num(d.used)+'</td><td class="num-col" style="font-weight:700;color:var(--red)">'+pct(d.inv_pct)+'</td><td class="num-col">'+zBar(d.z)+'</td><td>'+d.winner_name+' '+partyBadge(d.winner_party)+'</td></tr>';
+  });
+  document.getElementById('tbody-invalid').innerHTML = html;
+
+  // 3. High novote
+  html = '';
+  DATA.high_novote.forEach(d => {
+    const sev = severity(d.nv_pct, 7.98, 9.87);
+    html += '<tr><td>'+sev+'</td><td>'+d.province+'</td><td>'+d.district+'</td><td class="num-col">'+num(d.novote)+'</td><td class="num-col">'+num(d.used)+'</td><td class="num-col" style="font-weight:700;color:var(--orange)">'+pct(d.nv_pct)+'</td><td class="num-col">'+zBar(d.z)+'</td><td>'+d.winner_name+' '+partyBadge(d.winner_party)+'</td></tr>';
+  });
+  document.getElementById('tbody-novote').innerHTML = html;
+
+  // 4. Turnout
+  html = '';
+  DATA.high_turnout.forEach(d => {
+    html += '<tr><td>'+d.province+'</td><td>'+d.district+'</td><td class="num-col">'+num(d.eligible)+'</td><td class="num-col">'+num(d.used)+'</td><td class="num-col" style="font-weight:700;color:var(--green)">'+pct(d.turn_pct)+'</td><td class="num-col">'+zBar(d.z)+'</td><td>'+d.winner_name+' '+partyBadge(d.winner_party)+'</td></tr>';
+  });
+  document.getElementById('tbody-highturn').innerHTML = html;
+  html = '';
+  DATA.low_turnout.forEach(d => {
+    html += '<tr><td>'+d.province+'</td><td>'+d.district+'</td><td class="num-col">'+num(d.eligible)+'</td><td class="num-col">'+num(d.used)+'</td><td class="num-col" style="font-weight:700;color:var(--red)">'+pct(d.turn_pct)+'</td><td class="num-col">'+zBar(Math.abs(d.z))+'</td><td>'+d.winner_name+' '+partyBadge(d.winner_party)+'</td></tr>';
+  });
+  document.getElementById('tbody-lowturn').innerHTML = html;
+
+  // 5. Close races
+  html = '';
+  DATA.close_races.forEach(r => {
+    html += '<tr><td>'+r.province+'</td><td>'+r.district+'</td><td>'+r.w_name+'</td><td>'+partyBadge(r.w_party)+'</td><td class="num-col">'+num(r.w_votes)+'</td><td>'+r.r_name+'</td><td>'+partyBadge(r.r_party)+'</td><td class="num-col">'+num(r.r_votes)+'</td><td class="num-col" style="font-weight:700">'+num(r.margin)+'</td><td class="num-col">'+r.margin_pct.toFixed(3)+'%</td></tr>';
+  });
+  document.getElementById('tbody-close').innerHTML = html;
+
+  // 6. Composite
+  html = '';
+  DATA.composite.forEach((d,i) => {
+    const cls = i < 3 ? 'highlight-row' : '';
+    html += '<tr class="'+cls+'"><td>'+(i+1)+'</td><td>'+d.province+'</td><td>'+d.district+'</td><td class="num-col" style="font-weight:700;color:var(--accent)">'+d.score+'</td><td>'+d.flags+'</td><td>'+d.winner_name+' '+partyBadge(d.winner_party)+'</td></tr>';
+  });
+  document.getElementById('tbody-composite').innerHTML = html;
+
+  // 7-8. Con vs party
+  document.getElementById('con-party-count').textContent = DATA.con_vs_party.length;
+  html = '';
+  DATA.con_vs_party.slice(0, 20).forEach(d => {
+    html += '<tr><td>'+d.province+'</td><td>'+d.district+'</td><td class="num-col">'+pct(d.inv_con)+'</td><td class="num-col">'+pct(d.inv_party)+'</td><td class="num-col" style="color:var(--orange)">'+pct(d.inv_diff)+'</td><td class="num-col">'+pct(d.nv_con)+'</td><td class="num-col">'+pct(d.nv_party)+'</td><td class="num-col" style="color:var(--orange)">'+pct(d.nv_diff)+'</td><td class="num-col" style="font-weight:700;color:var(--red)">'+pct(d.total_diff)+'</td><td>'+d.winner_name+' '+partyBadge(d.winner_party)+'</td></tr>';
+  });
+  document.getElementById('tbody-conparty').innerHTML = html;
+
+  // 8. Vote decrease
+  html = '';
+  DATA.vote_decrease.forEach(dist => {
+    dist.details.forEach((d, i) => {
+      const rowspan = i === 0 ? ' rowspan="'+dist.details.length+'"' : '';
+      const provCell = i === 0 ? '<td'+rowspan+'>'+dist.province+'</td><td'+rowspan+'>'+dist.district+'</td>' : '';
+      html += '<tr>'+provCell+'<td>'+d.name+'</td><td>'+partyBadge(d.party)+'</td><td class="num-col">'+num(d.v100)+'</td><td class="num-col">'+num(d.v94)+'</td><td class="num-col neg">'+num(d.diff)+'</td></tr>';
+    });
+  });
+  document.getElementById('tbody-decrease').innerHTML = html;
+
+  // ===== CHARTS =====
+  // Party pie chart
+  const partyData = {กล้าธรรม: 7, เพื่อไทย: 7, ภูมิใจไทย: 4, ประชาชน: 2};
+  new Chart(document.getElementById('partyChart'), {
+    type: 'doughnut',
+    data: {
+      labels: Object.keys(partyData),
+      datasets: [{
+        data: Object.values(partyData),
+        backgroundColor: ['#3b82f6','#ef4444','#1e40af','#f97316'],
+        borderWidth: 0
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 13 } } }
+      }
+    }
+  });
+
+  // Composite bar chart
+  const compLabels = DATA.composite.slice(0,15).map(d => d.province+' '+d.district);
+  const compScores = DATA.composite.slice(0,15).map(d => d.score);
+  const compColors = DATA.composite.slice(0,15).map(d => {
+    const p = d.winner_party;
+    return p === 'กล้าธรรม' ? '#3b82f6' : p === 'เพื่อไทย' ? '#ef4444' : p === 'ภูมิใจไทย' ? '#1e40af' : '#f97316';
+  });
+  new Chart(document.getElementById('compositeChart'), {
+    type: 'bar',
+    data: {
+      labels: compLabels,
+      datasets: [{ data: compScores, backgroundColor: compColors, borderWidth: 0, borderRadius: 4 }]
+    },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: '#334155' }, ticks: { color: '#94a3b8' }, title: { display: true, text: 'Anomaly Score', color: '#94a3b8' } },
+        y: { grid: { display: false }, ticks: { color: '#e2e8f0', font: { size: 11 } } }
+      }
+    }
+  });
+
+  // Distribution chart
+  const invBuckets = [0,0,0,0,0,0]; // <2, 2-3, 3-4, 4-5, 5-6, >6
+  DATA.high_invalid; // we need raw data - approximate from stats
+  // Simple histogram labels
+  new Chart(document.getElementById('distChart'), {
+    type: 'bar',
+    data: {
+      labels: ['บัตรเสีย%', 'ไม่เลือก%', 'Turnout%'],
+      datasets: [
+        { label: 'Mean', data: [3.56, 4.20, 71.42], backgroundColor: '#38bdf8', borderRadius: 4 },
+        { label: '2σ threshold', data: [6.30, 7.98, 82.87], backgroundColor: '#fb923c', borderRadius: 4 }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { labels: { color: '#94a3b8' } } },
+      scales: {
+        x: { ticks: { color: '#94a3b8' }, grid: { display: false } },
+        y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } }
+      }
+    }
+  });
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+
+</body>
+</html>
